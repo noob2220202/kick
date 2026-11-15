@@ -148,20 +148,32 @@ def B_(context, tpl: str) -> str:
 
 
 async def a_link(context: ContextTypes.DEFAULT_TYPE) -> str:
-    link = context.bot_data.get("a_link")
-    if not link:
-        inv = await call(context.bot.create_chat_invite_link, A, name="B 입장 안내용")
-        link = context.bot_data["a_link"] = inv.invite_link
-    return link
+    """A 그룹 링크. 없으면 봇이 만들고, 권한이 없으면 "" (버튼 없이 안내)."""
+    bd = context.bot_data
+    if not bd.get("a_link"):
+        bd["a_link"] = await make_a_link(context.bot)
+    return bd["a_link"]
+
+
+async def make_a_link(bot) -> str:
+    try:
+        inv = await call(bot.create_chat_invite_link, A, name="B 입장 안내용")
+        return inv.invite_link
+    except TelegramError as e:
+        log.error(
+            "A 그룹 초대 링크 생성 실패: %s → A 그룹에서 봇에게 '링크로 초대' 권한을 주거나 "
+            "config.py 의 A_INVITE_LINK 에 링크를 넣으세요", e
+        )
+        return ""
 
 
 async def guide_markup(context, origin: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(B_(context, M.BTN_JOIN_A), url=await a_link(context))],
-            [InlineKeyboardButton(B_(context, M.BTN_CHECK), callback_data=f"{CHECK_DATA}:{origin}")],
-        ]
-    )
+    rows = []
+    link = await a_link(context)
+    if link:
+        rows.append([InlineKeyboardButton(B_(context, M.BTN_JOIN_A), url=link)])
+    rows.append([InlineKeyboardButton(B_(context, M.BTN_CHECK), callback_data=f"{CHECK_DATA}:{origin}")])
+    return InlineKeyboardMarkup(rows)
 
 
 def b_markup(context, tpl: str):
@@ -394,10 +406,12 @@ async def post_init(app: Application):
         except TelegramError as e:
             log.error("%s(%s) 접근 불가: %s", label, cid, e)
             bd.setdefault(f"{key}_name", getattr(config, f"{key.upper()}_NAME", "") or label)
+    if not bd.get("a_link"):
+        bd["a_link"] = await make_a_link(app.bot)
     app.create_task(sweep_loop(app))
     log.info(
-        "봇 시작: @%s | A=%s | B=%s | 기록된 B 회원 %s명",
-        me.username, bd.get("a_name"), bd.get("b_name"), db_count(),
+        "봇 시작: @%s | A=%s (%s) | B=%s | 기록된 B 회원 %s명",
+        me.username, bd.get("a_name"), bd.get("a_link") or "링크 없음!", bd.get("b_name"), db_count(),
     )
 
 
