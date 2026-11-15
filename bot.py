@@ -1,4 +1,4 @@
-"""A 채널 미가입자를 B 채널에서 킥(재입장 가능)하는 봇.
+"""A 그룹 미가입자를 B 채널에서 킥(재입장 가능)하는 봇.
 
 - B 입장 요청: A 가입자면 바로 승인, 아니면 개인 메시지로 A 가입 안내 + [입장완료] 버튼
 - A 를 나가면: B 에서 즉시 킥 (ban 후 바로 unban → 다시 들어올 수 있음)
@@ -91,7 +91,7 @@ async def call(fn, *args, **kwargs):
 
 
 async def status_in(bot, chat_id: int, uid: int):
-    """해당 채널에서의 상태 문자열. 확인 실패 시 None."""
+    """해당 그룹/채널에서의 상태 문자열. 확인 실패 시 None."""
     try:
         m = await call(bot.get_chat_member, chat_id, uid)
     except TelegramError as e:
@@ -133,7 +133,7 @@ async def a_link(context: ContextTypes.DEFAULT_TYPE) -> str:
 def guide_markup(link: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("A 채널 입장하기", url=link)],
+            [InlineKeyboardButton("A 그룹 입장하기", url=link)],
             [InlineKeyboardButton("입장완료", callback_data=CHECK_DATA)],
         ]
     )
@@ -155,8 +155,8 @@ async def on_join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-        "B 채널에 입장하려면 먼저 A 채널에 들어와 주세요.\n\n"
-        "1) 아래 [A 채널 입장하기] 버튼으로 A 채널에 들어오기\n"
+        "B 채널에 입장하려면 먼저 A 그룹에 들어와 주세요.\n\n"
+        "1) 아래 [A 그룹 입장하기] 버튼으로 A 그룹에 들어오기\n"
         "2) [입장완료] 버튼 누르기\n\n"
         "확인되면 B 채널 입장 요청이 자동으로 승인돼요."
     )
@@ -181,7 +181,7 @@ async def on_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("확인 중 오류가 났어요. 잠시 후 다시 눌러주세요.", show_alert=True)
         return
     if not ok:
-        await q.answer("아직 A 채널에 입장하지 않았어요. A 채널에 들어온 뒤 다시 눌러주세요.", show_alert=True)
+        await q.answer("아직 A 그룹에 입장하지 않았어요. A 그룹에 들어온 뒤 다시 눌러주세요.", show_alert=True)
         return
 
     try:
@@ -324,13 +324,22 @@ async def cmd_import(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def cmd_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """설정용: 현재 채팅 ID 와 보낸 사람 ID 알려줌. 채널은 채널 글에 /id 를 쓰면 됨."""
+    msg = update.effective_message
+    text = f"이 채팅 ID: {update.effective_chat.id}"
+    if update.effective_user:
+        text += f"\n내 user id: {update.effective_user.id}"
+    await msg.reply_text(text)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     if await in_a(context.bot, uid):
-        await update.message.reply_text("A 채널 가입이 확인됐어요. B 채널에 입장 요청을 보내주세요.")
+        await update.message.reply_text("A 그룹 가입이 확인됐어요. B 채널에 입장 요청을 보내주세요.")
     else:
         await update.message.reply_text(
-            "B 채널에 입장하려면 먼저 A 채널에 들어와 주세요.",
+            "B 채널에 입장하려면 먼저 A 그룹에 들어와 주세요.",
             reply_markup=guide_markup(await a_link(context)),
         )
 
@@ -338,13 +347,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------------------------------------------------------- 실행
 async def post_init(app: Application):
     me = await app.bot.get_me()
-    for name, cid in (("A", A), ("B", B)):
+    for name, cid in (("A 그룹", A), ("B 채널", B)):
         try:
             m = await app.bot.get_chat_member(cid, me.id)
             if m.status != ChatMember.ADMINISTRATOR:
-                log.error("봇이 %s 채널 관리자가 아님! (%s)", name, m.status)
+                log.error("봇이 %s 관리자가 아님! (%s)", name, m.status)
         except (BadRequest, Forbidden) as e:
-            log.error("%s 채널(%s) 접근 불가: %s", name, cid, e)
+            log.error("%s(%s) 접근 불가: %s", name, cid, e)
     app.create_task(sweep_loop(app))
     log.info("봇 시작: @%s, 기록된 B 회원 %s명", me.username, db_count())
 
@@ -356,6 +365,7 @@ def main():
     app.add_handler(ChatMemberHandler(on_member_update, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(CommandHandler("sweep", cmd_sweep))
     app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("id", cmd_id))
     app.add_handler(
         MessageHandler(filters.Document.ALL & filters.CaptionRegex(r"^/import"), cmd_import)
     )
