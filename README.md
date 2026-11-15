@@ -27,7 +27,7 @@ nohup python3 bot.py > bot.log 2>&1 &
 기존 회원은 아래 중 하나로 목록을 넣어준 뒤 봇에게 `/sweep`:
 
 - **방법 1 (권장)**: `python3 import_members.py` — B 관리자 계정으로 한 번 로그인해서 회원 목록 가져옴
-  (`pip install --user telethon`, my.telegram.org 에서 api_id/api_hash 발급).
+  (my.telegram.org 에서 api_id/api_hash 발급). 끝나면 자동 로그아웃됨.
   채널 특성상 텔레그램이 목록을 일부만 줄 수 있음.
 - **방법 2**: user id 가 한 줄씩 적힌 `.txt` 파일을 봇에게 캡션 `/import` 로 보내기
 

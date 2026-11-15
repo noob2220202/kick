@@ -19,3 +19,8 @@ SWEEP_INTERVAL_HOURS = 6
 
 # 회원 기록 DB 파일
 DB_PATH = "kick.db"
+
+# (선택) 기존 회원 정리용 import_members.py 에서만 사용. my.telegram.org 에서 발급
+# 비워두면 실행할 때 물어봄
+API_ID = 0
+API_HASH = ""
